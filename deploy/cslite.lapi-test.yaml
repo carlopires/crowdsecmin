@@ -1,0 +1,29 @@
+# Scratch config for the P2 LAPI / T1-T2 wire-compatibility tests.
+mode: lapi
+listen: 127.0.0.1:18080
+api_key: "testkey"
+log_level: info
+update_frequency: 10s
+startup_pull: false
+
+capi:
+  enabled: false
+
+persistence:
+  enabled: false
+  path: /tmp/cslite-lapi/decisions.bin
+
+backend:
+  mode: iptables
+  blacklists_ipv4: cslitetest-blacklists
+  blacklists_ipv6: cslitetest6-blacklists
+  ipset_type: hash:net
+  maxelem: 4096
+  deny_action: DROP
+  iptables_chains: [INPUT]
+  add_rule_comments: false
+  teardown_on_exit: false
+
+limits:
+  max_decisions: 100000
+  max_bans_per_second: 50

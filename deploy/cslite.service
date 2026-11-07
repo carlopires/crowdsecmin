@@ -1,0 +1,36 @@
+[Unit]
+Description=cslite - lightweight CrowdSec-compatible LAPI
+Documentation=file:/usr/share/doc/cslite/README.md
+After=network-online.target
+Wants=network-online.target
+
+# Crash-loop guard (must live in [Unit]).
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=notify
+ExecStart=/usr/local/sbin/cslited --config /etc/cslite/cslite.yaml
+Restart=always
+RestartSec=2
+User=root
+
+# Only what the enforcer needs; everything else dropped.
+# CAP_DAC_READ_SEARCH lets the detector read /var/log/auth.log (0640 syslog:adm)
+# even though we drop the rest of root's DAC-override capabilities.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_READ_SEARCH
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/lib/cslite
+StateDirectory=cslite
+
+# Footprint: measured spike is ~1.1 MB; this is a hard safety ceiling.
+MemoryMax=64M
+ManagedOOMPreference=avoid
+LimitNOFILE=1024
+
+[Install]
+WantedBy=multi-user.target

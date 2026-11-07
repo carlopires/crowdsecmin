@@ -1,0 +1,29 @@
+# Scratch config for the P1 ipset integration test (T3/T4).
+# Uses isolated set names so it never collides with the real CrowdSec sets.
+mode: direct
+listen: 127.0.0.1:18080
+log_level: debug
+update_frequency: 10s
+startup_pull: false
+
+capi:
+  enabled: false
+
+persistence:
+  enabled: false
+  path: /tmp/cslite-test/decisions.bin
+
+backend:
+  mode: iptables
+  blacklists_ipv4: cslitetest-blacklists
+  blacklists_ipv6: cslitetest6-blacklists
+  ipset_type: hash:net
+  maxelem: 4096
+  deny_action: DROP
+  iptables_chains: [INPUT]
+  add_rule_comments: false
+  teardown_on_exit: false
+
+limits:
+  max_decisions: 1000
+  max_bans_per_second: 50

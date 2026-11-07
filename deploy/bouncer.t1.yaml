@@ -1,0 +1,20 @@
+# Configuration for the real crowdsec-firewall-bouncer v0.0.36 (T1).
+# Used only by scripts/t1_bouncer.sh inside an isolated network namespace.
+mode: iptables
+update_frequency: 10s
+log_mode: stdout
+log_level: debug
+api_url: http://127.0.0.1:18080/
+api_key: testkey
+insecure_skip_verify: false
+disable_ipv6: false
+deny_action: DROP
+deny_log: false
+supported_decisions_types:
+  - ban
+blacklists_ipv4: cslitetest-blacklists
+blacklists_ipv6: cslitetest6-blacklists
+ipset_type: nethash
+iptables_chains:
+  - INPUT
+iptables_add_rule_comments: false

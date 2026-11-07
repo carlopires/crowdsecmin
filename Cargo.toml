@@ -1,0 +1,30 @@
+[package]
+name = "cslite"
+version = "0.1.0"
+edition = "2021"
+description = "Lightweight CrowdSec-compatible LAPI/bouncer (Rust)"
+repository = "https://github.com/carlopires/crowdsecmin"
+license = "MIT"
+
+[lib]
+name = "cslite"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cslited"
+path = "src/bin/cslited.rs"
+
+[[bin]]
+name = "cslite"
+path = "src/bin/cslite.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+codegen-units = 1
+strip = true
+
+[dependencies]
+rustls = { version = "0.23", default-features = false, features = ["std", "ring", "tls12"] }
+rustls-native-certs = "0.8"

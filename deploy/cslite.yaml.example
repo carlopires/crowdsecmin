@@ -1,0 +1,43 @@
+# /etc/cslite/cslite.yaml — strict subset of YAML.
+# Only flat `key: value`, one level of nesting, booleans, integers, quoted
+# strings, inline lists `[a, b]`, and `#` comments are accepted. Anything else
+# is a hard error with a line number (run `cslite check-config`).
+
+mode: lapi                 # lapi (Mode B) | direct (Mode A)
+listen: 127.0.0.1:8080     # Mode B only
+api_key: "replace-with-output-of-cscli-bouncers-add"
+# api_key_file: /etc/cslite/api.key
+log_level: info            # error|warn|info|debug
+update_frequency: 10s
+startup_pull: true
+
+persistence:
+  enabled: true
+  path: /var/lib/cslite/decisions.bin
+
+capi:
+  enabled: true
+  credentials_path: /etc/crowdsec/online_api_credentials.yaml
+  update_frequency: 2h
+
+backend:
+  mode: iptables           # iptables | nftables
+  blacklists_ipv4: crowdsec-blacklists
+  blacklists_ipv6: crowdsec6-blacklists
+  ipset_type: hash:net     # must be hash:net (CAPI includes CIDRs)
+  maxelem: 131072
+  deny_action: DROP
+  iptables_chains: [INPUT]
+  add_rule_comments: true
+  teardown_on_exit: false  # keep sets on restart: no protection gap
+
+local_detection:
+  enabled: false
+  log_path: /var/log/auth.log
+  ban_threshold: 5
+  window: 60s
+  ban_duration: 4h
+
+limits:
+  max_decisions: 100000
+  max_bans_per_second: 50

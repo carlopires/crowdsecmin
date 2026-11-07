@@ -1,0 +1,24 @@
+crowdsecmin (cslite)
+Copyright (c) 2026 Carlo Pires
+
+This is an independent, from-scratch implementation of a subset of the
+CrowdSec Local API and firewall-bouncer behavior. It is **not affiliated with,
+endorsed by, or sponsored by CrowdSec SAS**. "CrowdSec" is a trademark of
+CrowdSec SAS and is used here only to describe interoperability.
+
+Wire compatibility note
+-----------------------
+The protocols were implemented independently for compatibility. No CrowdSec
+source code is included in this repository.
+
+The upstream CrowdSec engine (https://github.com/crowdsecurity/crowdsec) and
+crowdsec-firewall-bouncer (https://github.com/crowdsecurity/cs-firewall-bouncer)
+are MIT-licensed:
+  Copyright (c) 2020-2023 Crowdsec
+  Copyright (c) 2020-2021 crowdsecurity
+
+Third-party Rust dependencies (see Cargo.lock)
+-----------------------------------------------
+  rustls                Apache-2.0 OR MIT
+  rustls-native-certs   Apache-2.0 OR MIT
+  ring                  ISC
