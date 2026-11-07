@@ -31,7 +31,7 @@ persistence:
 capi:
   enabled: true
   credentials_path: $DIR/creds.yaml
-  update_frequency: 2h
+  update_frequency: 1s
 
 backend:
   mode: nftables

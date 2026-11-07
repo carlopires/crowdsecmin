@@ -103,7 +103,9 @@ fn main() {
     let mut command: Option<String> = None;
     let mut pos: Vec<String> = Vec::new();
     let mut duration = "4h".to_string();
-    let mut origin = "CAPI".to_string();
+    // Local/admin additions default to origin "crowdsec" so they are exempt
+    // from the CAPI snapshot prune (which only manages origin CAPI).
+    let mut origin = "crowdsec".to_string();
     let mut scenario = "cslite/manual".to_string();
     let mut state_override: Option<String> = None;
     let mut api_override: Option<String> = None;
@@ -535,7 +537,7 @@ fn print_help() {
          flush                            flush this origin's sets directly\n\n\
          OPTIONS:\n    \
          -c, --config PATH   config (default {DEFAULT_CONFIG})\n    \
-         --origin NAME       origin/set index (default CAPI)\n    \
+         --origin NAME       origin/set index (default crowdsec)\n    \
          --scenario NAME     scenario for add (default cslite/manual)\n    \
          --duration DUR      duration for add (default 4h)\n    \
          --state-dir DIR     origin->index dir for direct ipset\n    \

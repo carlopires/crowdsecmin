@@ -1,12 +1,13 @@
 //! CAPI client (P4): TLS via rustls, HTTP/1.1 written by hand, login + stream
 //! polling with exponential backoff. Applies decisions to a shared `Store`.
 use crate::json;
-use crate::store::{now_secs, Store};
+use crate::store::{now_secs, Decision, Store};
+use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct Credentials {
     pub url: String,
@@ -306,12 +307,22 @@ impl CapiClient {
         Ok(body)
     }
 
-    /// One poll; returns the number of decisions added.
-    pub fn poll(&mut self, store: &mut Store, startup: bool) -> Result<usize, String> {
-        let body = self.fetch(startup)?;
+    /// One authoritative snapshot poll. CAPI v3 returns the full blocklist on
+    /// every request, so we diff it against the store: add new decisions and
+    /// remove CAPI decisions that are no longer present. Returns (added, pruned).
+    pub fn poll_snapshot(&mut self, store: &mut Store) -> Result<(usize, usize), String> {
+        let body = self.fetch(true)?;
         let (newv, delv) = json::parse_capi_v3(&body);
         let now = now_secs();
-        let mut added = 0;
+
+        let mut keys: HashSet<(u8, [u8; 16], u8, u8)> = HashSet::new();
+        for r in &newv {
+            if let Some((addr, plen, family)) = json::parse_value(&r.value) {
+                keys.insert((family, addr, plen, r.scope));
+            }
+        }
+
+        let mut added = 0usize;
         for r in newv {
             if let Some(d) = json::build_decision(store, &r, now) {
                 if store.insert(d) {
@@ -325,8 +336,26 @@ impl CapiClient {
                 store.remove(&d);
             }
         }
+
+        // Snapshot is authoritative for the CAPI origin.
+        let capi = store.intern_origin("CAPI");
+        let stale: Vec<Decision> = store
+            .iter()
+            .filter(|d| {
+                d.origin_id == capi
+                    && !keys.contains(&(d.family, d.addr, d.prefixlen, d.scope))
+            })
+            .copied()
+            .collect();
+        let mut pruned = 0usize;
+        for d in &stale {
+            if store.remove(d).is_some() {
+                pruned += 1;
+            }
+        }
+
         store.prune_expired(now);
-        Ok(added)
+        Ok((added, pruned))
     }
 }
 
@@ -368,8 +397,7 @@ fn parse_rfc3339(s: &str) -> Option<u64> {
 pub fn run(
     store: Arc<Mutex<Store>>,
     creds_path: &str,
-    interval_secs: u64,
-    full_refresh_secs: u64,
+    poll_interval_secs: u64,
     persist: Option<PathBuf>,
 ) {
     let creds = match Credentials::load(creds_path) {
@@ -386,20 +414,11 @@ pub fn run(
             return;
         }
     };
-    let mut startup = true;
-    let mut last_full: Option<Instant> = None;
     let mut backoff = 1u64;
     loop {
-        // `startup=true` (full snapshot) once at boot, and again every
-        // capi.update_frequency so deletions missed in deltas get reconciled.
-        let full = startup
-            || (full_refresh_secs > 0
-                && last_full
-                    .map(|t| t.elapsed().as_secs() >= full_refresh_secs)
-                    .unwrap_or(true));
         let result = {
             let mut st = store.lock().unwrap_or_else(|p| p.into_inner());
-            let r = client.poll(&mut st, full);
+            let r = client.poll_snapshot(&mut st);
             if r.is_ok() {
                 if let Some(p) = &persist {
                     let _ = st.save_to(p);
@@ -408,14 +427,10 @@ pub fn run(
             r
         };
         match result {
-            Ok(n) => {
-                if full {
-                    last_full = Some(Instant::now());
-                }
-                crate::logi!("capi: full_refresh={full} added {n} decisions");
-                startup = false;
+            Ok((added, pruned)) => {
+                crate::logi!("capi: snapshot poll added {added}, pruned {pruned}");
                 backoff = 1;
-                std::thread::sleep(Duration::from_secs(interval_secs.max(1)));
+                std::thread::sleep(Duration::from_secs(poll_interval_secs.max(1)));
             }
             Err(e) => {
                 let jitter = (now_secs() as u64 % 1000) / 1000;

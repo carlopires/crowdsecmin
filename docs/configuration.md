@@ -23,7 +23,7 @@ cslite check-config
 | `api_key` | — | inline key (or use `api_key_file`) |
 | `api_key_file` | — | file containing the key (mode 0600/0640 recommended) |
 | `log_level` | `info` | `error\|warn\|info\|debug`; rate-limited stderr |
-| `update_frequency` | `10s` | CAPI delta poll interval |
+| `update_frequency` | `10s` | bouncer LAPI poll hint; `cslite` does **not** poll CAPI at this rate |
 | `startup_pull` | `true` | accepted for compatibility (startup is always pulled) |
 
 Mode B requires `api_key` or `api_key_file`. The key must match the bouncer's
@@ -46,8 +46,9 @@ Only used in Mode B; the origin→index map lives in the same directory.
 | `credentials_path` | `/etc/crowdsec/online_api_credentials.yaml` |
 | `update_frequency` | `2h` |
 
-`update_frequency` is the **full refresh** cadence (startup=true), not the delta
-poll. Credentials file:
+`update_frequency` is the **CAPI snapshot poll interval** (default 2 h). CAPI v3
+returns the full blocklist on every request; the client diffs it and prunes
+CAPI-origin decisions that disappeared. Local origins are exempt. Credentials file:
 
 ```yaml
 url: https://api.crowdsec.net/
@@ -149,3 +150,7 @@ backend:
 `--api-key`, `CSLITE_API_KEY`, `api_key`, `api_key_file`. If the key file is
 unreadable it exits 4 with a hint rather than sending an empty key (which would
 yield a bare `403`).
+
+`cslite decisions add` defaults to origin **`crowdsec`** (local set `-1`), which
+the CAPI snapshot prune never removes. Use `--origin CAPI` only for the community
+set, which is reconciled from the snapshot.

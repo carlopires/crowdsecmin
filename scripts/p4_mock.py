@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Mock CAPI (v3, grouped) for the P4 test.
+"""Mock CAPI (v3, snapshot) for the P4 test.
 
-POST /v3/watchers/login                 -> {"token":"testtoken","expire":...}
-GET  /v3/decisions/stream?startup=true  -> fixture converted to v3 groups
-GET  ...?startup=false                  -> one grouped add, then empty
+CAPI v3 returns the full blocklist on every request; this mock emulates that:
+  call 1  -> fixture
+  call 2+ -> fixture + 203.0.113.99
 Requires: Authorization: Bearer testtoken
 """
+import copy
 import http.server
 import json
 import sys
@@ -18,16 +19,20 @@ for d in flat.get("new", []):
     scope = d.get("scope", "Ip").lower()
     key = (scope, d.get("scenario", ""))
     groups.setdefault(key, []).append({"value": d["value"], "duration": d["duration"]})
-v3 = {
-    "new": [
-        {"scope": s, "scenario": sc, "decisions": ds}
-        for (s, sc), ds in groups.items()
-    ],
+base = {
+    "new": [{"scope": s, "scenario": sc, "decisions": ds} for (s, sc), ds in groups.items()],
     "deleted": [],
     "links": {},
 }
-fixture = json.dumps(v3, separators=(",", ":")).encode()
-state = {"delta_calls": 0}
+with_extra = copy.deepcopy(base)
+with_extra["new"].append(
+    {
+        "scope": "ip",
+        "scenario": "ssh:bf",
+        "decisions": [{"value": "203.0.113.99", "duration": "1h"}],
+    }
+)
+state = {"calls": 0}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -54,19 +59,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send(401, b'{"message":"unauthorized"}')
             return
         if "/decisions/stream" in self.path:
-            if "startup=true" in self.path:
-                self._send(200, fixture)
-            else:
-                state["delta_calls"] += 1
-                if state["delta_calls"] == 1:
-                    body = (
-                        b'{"new":[{"scope":"ip","scenario":"ssh:bf",'
-                        b'"decisions":[{"value":"203.0.113.99","duration":"1h"}]}],'
-                        b'"deleted":[]}'
-                    )
-                else:
-                    body = b'{"new":[],"deleted":[]}'
-                self._send(200, body)
+            state["calls"] += 1
+            body = base if state["calls"] == 1 else with_extra
+            self._send(200, json.dumps(body, separators=(",", ":")).encode())
         else:
             self._send(404, b'{"message":"not found"}')
 

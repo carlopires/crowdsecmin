@@ -36,7 +36,7 @@ persistence:
 capi:
   enabled: true
   credentials_path: $DIR/creds.yaml
-  update_frequency: 2h
+  update_frequency: 1s
 
 backend:
   mode: iptables
@@ -77,6 +77,15 @@ echo "decisions after CAPI sync: $count (expect >= 15345)"
 body=$(curl -s -H "X-Api-Key: testkey" "http://127.0.0.1:18082/v1/decisions" 2>/dev/null || true)
 delta=$(printf '%s' "$body" | grep -c 203.0.113.99 || true)
 echo "delta decision 203.0.113.99 present: $delta"
+echo "== local-origin decision must survive snapshot prune =="
+"$BIN/cslite" decisions add 198.51.100.77 --duration 1h --origin crowdsec --config "$DIR/cslite.yaml" >/dev/null
+sleep 3
+if "$BIN/cslite" decisions test 198.51.100.77 --config "$DIR/cslite.yaml" >/dev/null 2>&1; then
+    echo "ok: local (crowdsec) decision retained across snapshot polls"
+else
+    echo "FAIL: local decision was pruned by the CAPI snapshot"; exit 1
+fi
+
 echo "== daemon log (capi lines) =="
 grep -E "capi|serving" "$DIR/srv.log" | tail -8
 

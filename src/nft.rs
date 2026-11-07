@@ -159,6 +159,30 @@ impl Nft {
         ));
         Ok(())
     }
+
+    /// List a set's members (values only, timeout stripped).
+    pub fn members(&self, name: &str) -> Result<Vec<String>, String> {
+        let out = self.run(&["list", "set", "inet", &self.table, name])?;
+        if !out.status.success() {
+            return Ok(Vec::new());
+        }
+        let text = String::from_utf8_lossy(&out.stdout);
+        let mut members = Vec::new();
+        if let Some(start) = text.find("elements = {") {
+            let rest = &text[start + "elements = {".len()..];
+            if let Some(end) = rest.find('}') {
+                for item in rest[..end].split(',') {
+                    if let Some(tok) = item.split_whitespace().next() {
+                        let t = tok.trim().trim_matches('"');
+                        if !t.is_empty() {
+                            members.push(t.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        Ok(members)
+    }
 }
 
 fn range_of(value: &str) -> Option<(u128, u128)> {

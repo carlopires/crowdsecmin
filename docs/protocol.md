@@ -95,8 +95,10 @@ Pitfalls:
 - **Do not send `community_pull=false`**: it disables the community blocklist
   and returns an empty payload (55 bytes). The parameter belongs to the local v1
   API.
-- Deltas are polled every `update_frequency` (10 s, like the Go engine);
-  `capi.update_frequency` (2 h) is a periodic **full refresh**.
+- CAPI returns the **full blocklist on every request** (measured ~721 KB /
+  15k decisions). `cslite` polls every `capi.update_frequency` (2 h) and treats
+  the response as authoritative. The 10 s `update_frequency` is the bouncer's
+  LAPI poll hint, not the CAPI cadence.
 - CAPI may close TLS without `close_notify`; treat that as EOF.
 
 ## Compatibility notes

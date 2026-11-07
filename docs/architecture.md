@@ -11,7 +11,7 @@ two deployment modes that share the same CAPI client and enforcement backends.
 | `store` | 40-byte `Decision`, open-addressing index, delta log, persistence, expiry pruning |
 | `json` | stream parsing (LAPI v1 + CAPI v3 grouped), serialization, Go duration format |
 | `server` | HTTP/1.1 LAPI + admin API, chunked responses |
-| `capi` | CAPI v3 client over rustls (login, startup, deltas, full refresh, backoff) |
+| `capi` | CAPI v3 client over rustls (login, full snapshot, backoff) |
 | `ipset` | ipset backend (`hash:net`, per-entry timeout, origin→index map, batched `restore`) |
 | `nft` | nftables backend (interval sets, base chains, containment filter) |
 | `direct` | Mode A loop: CAPI → firewall, no store/server |
@@ -69,14 +69,18 @@ two deployment modes that share the same CAPI client and enforcement backends.
 
 - `POST /v3/watchers/login` with `machine_id`/`password` (from
   `online_api_credentials.yaml`), then
-  `GET /v3/decisions/stream?startup=true|false&scopes=Ip,Range` with a Bearer
-  token.
+  `GET /v3/decisions/stream?startup=true&scopes=Ip,Range` with a Bearer token.
+- CAPI v3 returns the **full blocklist on every request** (even
+  `startup=false`; measured ~721 KB / 15k decisions). The client polls every
+  `capi.update_frequency` (default **2 h**) and treats each response as an
+  authoritative snapshot: new decisions are inserted (deduped by key),
+  CAPI-origin decisions absent from it are removed, and local origins
+  (`crowdsec`, detection, CLI/admin adds) are **exempt**.
+- `update_frequency` (10 s) is the **bouncer's** LAPI poll hint; `cslite` does not
+  poll CAPI at that rate (that would download ~6 GB/day).
 - v3 returns **grouped** decisions (`scope`/`scenario`/`decisions[]`), not the
   flat v1 shape; the parser handles both `new` and `deleted` groups.
-- Deltas poll every `update_frequency` (10 s, like the Go engine).
-  `capi.update_frequency` (2 h) triggers a **full refresh** (`startup=true`) so
-  deletions missed in deltas are reconciled.
-- Backoff 1 s→60 s with jitter; re-login on 401/403.
+- Backoff 1 s→60 s; re-login on 401/403.
 - Certificates verified against the system CA bundle; servers that close without
   TLS `close_notify` are treated as EOF.
 

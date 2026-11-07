@@ -66,7 +66,7 @@ backend: { mode: iptables, blacklists_ipv4: crowdsec-blacklists, maxelem: 131072
 1. `sudo systemctl stop crowdsec-firewall-bouncer crowdsec`
 2. `sudo systemctl enable --now cslite`
 3. Verify: `ipset list -n`, `ipset test`, `journalctl -u cslite` shows
-   `direct: full_refresh=true applied N changes`.
+   `direct: snapshot applied N, pruned M`.
 4. Rollback: `sudo systemctl stop cslite && sudo systemctl enable --now crowdsec
    crowdsec-firewall-bouncer`.
 
@@ -142,5 +142,8 @@ packagecloud repo and restoring the backup (no `.deb` is cached by default).
   with per-entry timeouts.
 - **CAPI is v3** (`/v3/...`); `/v1/...` is the local LAPI. Do not send
   `community_pull=false` to CAPI — it returns an empty blocklist.
+- CAPI returns the **full blocklist on every request**; `cslite` polls every
+  `capi.update_frequency` (2 h) and prunes CAPI-origin entries absent from it.
+  The 10 s `update_frequency` is the bouncer's hint, not the CAPI cadence.
 - CAPI may close TLS without `close_notify`; the client treats that as EOF.
 - The 24 h soak is available: `SOAK_SECONDS=86400 SOAK_INTERVAL=3600 ./scripts/soak.sh`.

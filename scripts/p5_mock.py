@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Mock CAPI (v3, grouped) for the P5/P7 direct-mode tests.
+"""Mock CAPI (v3, snapshot) for the P5/P7 direct-mode tests.
 
-startup=true  -> fixture converted to v3 groups
-deltas 1..3   -> grouped add 192.0.2.123
-delta 4       -> grouped delete 192.0.2.123
-delta 5+      -> empty
+CAPI v3 returns the full blocklist on every request; this mock emulates that:
+  call 1     -> fixture
+  calls 2-3  -> fixture + 192.0.2.123
+  call 4+    -> fixture            (entry disappears -> prune should remove it)
 """
+import copy
 import http.server
 import json
 import sys
@@ -18,16 +19,20 @@ for d in flat.get("new", []):
     scope = d.get("scope", "Ip").lower()
     key = (scope, d.get("scenario", ""))
     groups.setdefault(key, []).append({"value": d["value"], "duration": d["duration"]})
-v3 = {
-    "new": [
-        {"scope": s, "scenario": sc, "decisions": ds}
-        for (s, sc), ds in groups.items()
-    ],
+base = {
+    "new": [{"scope": s, "scenario": sc, "decisions": ds} for (s, sc), ds in groups.items()],
     "deleted": [],
     "links": {},
 }
-fixture = json.dumps(v3, separators=(",", ":")).encode()
-state = {"delta": 0}
+with_extra = copy.deepcopy(base)
+with_extra["new"].append(
+    {
+        "scope": "ip",
+        "scenario": "ssh:bf",
+        "decisions": [{"value": "192.0.2.123", "duration": "1h"}],
+    }
+)
+state = {"calls": 0}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -54,22 +59,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send(401, b'{"message":"unauthorized"}')
             return
         if "/decisions/stream" in self.path:
-            if "startup=true" in self.path:
-                self._send(200, fixture)
+            state["calls"] += 1
+            if state["calls"] == 1:
+                body = base
+            elif state["calls"] <= 3:
+                body = with_extra
             else:
-                state["delta"] += 1
-                d = state["delta"]
-                if d <= 3:
-                    body = (
-                        b'{"new":[{"scope":"ip","scenario":"ssh:bf",'
-                        b'"decisions":[{"value":"192.0.2.123","duration":"1h"}]}],'
-                        b'"deleted":[]}'
-                    )
-                elif d == 4:
-                    body = b'{"new":[],"deleted":[{"scope":"ip","decisions":["192.0.2.123"]}]}'
-                else:
-                    body = b'{"new":[],"deleted":[]}'
-                self._send(200, body)
+                body = base
+            self._send(200, json.dumps(body, separators=(",", ":")).encode())
         else:
             self._send(404, b'{"message":"not found"}')
 

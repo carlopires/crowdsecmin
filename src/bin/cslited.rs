@@ -118,7 +118,6 @@ fn main() {
             cslite::direct::run(
                 &cfg.backend,
                 &cfg.capi.credentials_path,
-                cfg.update_frequency_secs,
                 cfg.capi.update_frequency_secs,
                 &state_dir,
                 notify_ready,
@@ -168,14 +167,13 @@ fn main() {
             if cfg.capi.enabled {
                 let handle = ctx.store_handle();
                 let creds = cfg.capi.credentials_path.clone();
-                let interval = cfg.update_frequency_secs;
-                let full = cfg.capi.update_frequency_secs;
+                let interval = cfg.capi.update_frequency_secs;
                 let persist_capi = ctx.persist.clone();
                 let creds_thread = creds.clone();
                 std::thread::spawn(move || {
-                    cslite::capi::run(handle, &creds_thread, interval, full, persist_capi)
+                    cslite::capi::run(handle, &creds_thread, interval, persist_capi)
                 });
-                logi!("capi poller started (credentials={creds}, delta={interval}s, full_refresh={full}s)");
+                logi!("capi poller started (credentials={creds}, snapshot_interval={interval}s)");
             } else {
                 logi!("capi disabled");
             }

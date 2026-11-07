@@ -29,8 +29,11 @@ Measured on a 2 vCPU / 953 MB Ubuntu 24.04 host with ~15k community decisions:
   auth and chunked responses. The existing Go bouncer keeps enforcing.
 - **Mode A — direct**: one process polls CAPI and writes ipset/nftables
   directly; no store, no HTTP server.
-- **CAPI v3 client** over rustls: login, startup snapshot, 10 s deltas, 2 h full
-  refresh, backoff.
+- **CAPI v3 client** over rustls: login, periodic **full snapshot** every
+  `capi.update_frequency` (default 2 h), backoff. CAPI returns the whole
+  blocklist per request, so `cslite` diffs it and prunes what disappeared.
+- **Local decisions** (CLI/admin/default) use origin `crowdsec`; the snapshot
+  prune only manages origin `CAPI`, so local bans are never dropped by a poll.
 - **Enforcement**: ipset (`hash:net`, per-entry timeouts) and nftables
   (interval sets, containment-safe).
 - **Local SSH detection**: tails `auth.log`, bans at a threshold, origin
@@ -97,7 +100,9 @@ cslite ipset add|del|test|flush <v>        # direct backend path
 
 The daemon key is read from `--api-key`, `CSLITE_API_KEY`, `api_key`, or
 `api_key_file`. If the key file is unreadable the CLI exits 4 with a clear hint
-instead of a bare 403.
+instead of a bare 403. `decisions add` defaults to origin `crowdsec` (local set
+`-1`); pass `--origin CAPI` only if you want the community set, which the CAPI
+snapshot prune will reconcile.
 
 ## Documentation
 

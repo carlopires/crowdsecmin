@@ -34,7 +34,7 @@ SOAK_SECONDS=60 ./scripts/soak.sh
 | `p3_admin.sh` | admin API + CLI: add/list/test/delete, delta carries changes, persistence across restart, bouncer key authorizes |
 | `t3_ipset.sh` | ipset add, kernel-side expiry (no daemon action), IPv6 set, bad prefix rejected — in a private netns |
 | `t1_bouncer.sh` | **unmodified** `crowdsec-firewall-bouncer` v0.0.36 against `cslited`: exact decision count applied, RSS ≤ 3 MB, no non-benign errors |
-| `p4_capi.sh` | CAPI v3 login + startup snapshot + delta against a local v3 mock |
+| `p4_capi.sh` | CAPI v3 login + full snapshot + prune, local-origin exemption |
 | `p5_direct.sh` | Mode A: startup + delta add/delete enforced with no HTTP server |
 | `p6_detect.sh` | `auth.log` threshold bans, below-threshold source ignored |
 | `p7_nft.sh` | nftables backend add/delete and foreign-table safety |
