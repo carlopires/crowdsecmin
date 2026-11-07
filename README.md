@@ -1,5 +1,7 @@
 # crowdsecmin (`cslite`)
 
+[![ci](https://github.com/carlopires/crowdsecmin/actions/workflows/ci.yml/badge.svg)](https://github.com/carlopires/crowdsecmin/actions/workflows/ci.yml)
+
 An independent, memory-safe **Rust** implementation of a CrowdSec-compatible
 Local API and firewall bouncer. It is small (~2 MB RSS), static, and speaks
 enough of the CrowdSec wire protocol that the **unmodified
@@ -24,9 +26,10 @@ Measured on a 2 vCPU / 953 MB Ubuntu 24.04 host with ~15k community decisions:
 
 ## Features
 
-- **Mode B — wire-compatible LAPI**: serves `/v1/decisions/stream`,
-  `/v1/decisions`, `/v1/bouncers`, `/health`, `/v1/heartbeat` with `X-Api-Key`
-  auth and chunked responses. The existing Go bouncer keeps enforcing.
+- **Mode B — wire-compatible LAPI**: serves `/v1/decisions/stream` and
+  `/v1/decisions` (chunked, `X-Api-Key`), `/v1/bouncers` (GET/POST, `X-Api-Key`),
+  `/v1/heartbeat` (`X-Api-Key`, empty 200), `/health` (unauthenticated), and
+  accepts `POST /v1/usage-metrics`. The existing Go bouncer keeps enforcing.
 - **Mode A — direct**: one process polls CAPI and writes ipset/nftables
   directly; no store, no HTTP server.
 - **CAPI v3 client** over rustls: login, periodic **full snapshot** every
