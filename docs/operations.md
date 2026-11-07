@@ -104,6 +104,32 @@ grep -E 'RssAnon|RssFile|RssShmem|VmRSS|Threads' /proc/$(pidof cslited)/status
 
 Baselines: Mode B ~2.2 MB (2–3 threads), Mode A ~1.0 MB ipset / ~1.2 MB nftables.
 
+## Removing the CrowdSec engine (keeping the bouncer)
+
+Mode B only needs the bouncer package and CAPI credentials. The engine package
+can be removed, but its **purge** script deletes `/etc/crowdsec/*` (except
+`bouncers/`) and deletes `/var/lib/crowdsec`. Relocate the credentials first:
+
+```bash
+# 1. decouple cslite from /etc/crowdsec
+sudo install -m600 /etc/crowdsec/online_api_credentials.yaml /etc/cslite/capi_credentials.yaml
+sudo sed -i 's#/etc/crowdsec/online_api_credentials.yaml#/etc/cslite/capi_credentials.yaml#' /etc/cslite/cslite.yaml
+sudo cslite check-config
+sudo systemctl restart cslite
+# verify: cslite decisions list | wc -l  (~15k) and journal shows CAPI polls
+
+# 2. back up and purge the engine
+sudo tar czf /var/backups/crowdsec-config-$(date +%Y%m%d-%H%M).tgz -C /etc crowdsec
+sudo apt-get purge -y crowdsec
+```
+
+The bouncer package (`crowdsec-firewall-bouncer-iptables`) depends only on
+`gettext-base`, `iptables`, and `ipset`; it keeps running. `/etc/crowdsec/bouncers`
+is preserved by the engine's purge script.
+
+**Rollback** after removal requires reinstalling `crowdsec` from the configured
+packagecloud repo and restoring the backup (no `.deb` is cached by default).
+
 ## Gotchas
 
 - **`maxelem`** must exceed the largest per-origin set; otherwise `ipset restore`
