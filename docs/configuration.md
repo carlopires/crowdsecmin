@@ -69,9 +69,15 @@ password: <password>
 | `iptables_chains` | `[INPUT]` | used by the Go bouncer config |
 | `add_rule_comments` | `true` | Go bouncer config |
 | `teardown_on_exit` | `false` | keep sets on exit: no protection gap |
-| `nft_table` | `crowdsec` | nftables only |
+| `nft_table` | `crowdsec` | nftables only (IPv4 table, family `ip`) |
+| `nft_table_ipv6` | `crowdsec6` | nftables only (IPv6 table, family `ip6`) |
 | `nft_chain` | `crowdsec-chain` | nftables only |
 | `nft_priority` | `-10` | nftables only |
+
+The nftables **bouncer** creates `ip <nft_table>` / `ip6 <nft_table_ipv6>` and
+names sets `<blacklists>-<origin>` (e.g. `crowdsec-blacklists-CAPI`,
+`crowdsec-blacklists-crowdsec`). `cslite reconcile` understands that layout;
+foreign tables are never touched.
 
 ### `local_detection`
 
@@ -140,6 +146,7 @@ backend:
   blacklists_ipv4: crowdsec-blacklists
   blacklists_ipv6: crowdsec6-blacklists
   nft_table: crowdsec
+  nft_table_ipv6: crowdsec6
   nft_chain: crowdsec-chain
   nft_priority: -10
 ```

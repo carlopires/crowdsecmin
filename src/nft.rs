@@ -235,6 +235,128 @@ fn filter_contained(items: Vec<(&str, u32)>) -> Vec<(&str, u32)> {
     out
 }
 
+/// Nft set access for the **bouncer-owned** layout (Mode B):
+/// `ip <table> <prefix>-<origin>` and `ip6 <table6> <prefix6>-<origin>`.
+pub struct NftTables {
+    pub bin: String,
+    pub v4_table: String,
+    pub v6_table: String,
+}
+
+impl NftTables {
+    pub fn from_config(b: &config::Backend) -> Self {
+        NftTables {
+            bin: nft_bin(),
+            v4_table: b.nft_table.clone(),
+            v6_table: b.nft_table_ipv6.clone(),
+        }
+    }
+
+    fn ft(&self, family: Family) -> (&'static str, &str) {
+        match family {
+            Family::V4 => ("ip", &self.v4_table),
+            Family::V6 => ("ip6", &self.v6_table),
+        }
+    }
+
+    fn run(&self, args: &[&str]) -> Result<Output, String> {
+        Command::new(&self.bin)
+            .args(args)
+            .output()
+            .map_err(|e| e.to_string())
+    }
+
+    fn script(&self, body: &str) -> Result<(), String> {
+        let mut child = Command::new(&self.bin)
+            .args(["-f", "-"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(body.as_bytes()).map_err(|e| e.to_string())?;
+        }
+        let out = child.wait_with_output().map_err(|e| e.to_string())?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "nft: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ))
+        }
+    }
+
+    pub fn list_sets(&self, family: Family) -> Result<Vec<String>, String> {
+        let (fam, table) = self.ft(family);
+        let out = self.run(&["list", "table", fam, table])?;
+        if !out.status.success() {
+            return Ok(Vec::new());
+        }
+        let text = String::from_utf8_lossy(&out.stdout);
+        let mut sets = Vec::new();
+        for line in text.lines() {
+            if let Some(rest) = line.trim_start().strip_prefix("set ") {
+                if let Some(name) = rest.split_whitespace().next() {
+                    sets.push(name.trim_end_matches('{').to_string());
+                }
+            }
+        }
+        Ok(sets)
+    }
+
+    pub fn members(&self, family: Family, set: &str) -> Result<Vec<String>, String> {
+        let (fam, table) = self.ft(family);
+        let out = self.run(&["list", "set", fam, table, set])?;
+        if !out.status.success() {
+            return Ok(Vec::new());
+        }
+        Ok(parse_elements(&String::from_utf8_lossy(&out.stdout)))
+    }
+
+    pub fn del(&self, family: Family, set: &str, value: &str) -> Result<(), String> {
+        let (fam, table) = self.ft(family);
+        let _ = self.script(&format!(
+            "delete element {} {} {} {{ {} }}\n",
+            fam, table, set, value
+        ));
+        Ok(())
+    }
+
+    pub fn add(
+        &self,
+        family: Family,
+        set: &str,
+        value: &str,
+        timeout: u32,
+    ) -> Result<(), String> {
+        let (fam, table) = self.ft(family);
+        self.script(&format!(
+            "add element {} {} {} {{ {} timeout {}s }}\n",
+            fam, table, set, value, timeout
+        ))
+    }
+}
+
+fn parse_elements(text: &str) -> Vec<String> {
+    let mut members = Vec::new();
+    if let Some(start) = text.find("elements = {") {
+        let rest = &text[start + "elements = {".len()..];
+        if let Some(end) = rest.find('}') {
+            for item in rest[..end].split(',') {
+                if let Some(tok) = item.split_whitespace().next() {
+                    let t = tok.trim().trim_matches('"');
+                    if !t.is_empty() {
+                        members.push(t.to_string());
+                    }
+                }
+            }
+        }
+    }
+    members
+}
+
 fn nft_bin() -> String {
     for p in ["/usr/sbin/nft", "/sbin/nft", "/usr/bin/nft"] {
         if Path::new(p).exists() {

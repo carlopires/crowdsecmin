@@ -7,6 +7,7 @@ use cslite::client::Client;
 use cslite::config::{self, parse_duration_secs, Config};
 use cslite::ipset::{self, Backend, Family, OriginMap};
 use cslite::json;
+use cslite::nft::NftTables;
 use cslite::{COMPAT_BOUNCER, COMPAT_CROWDSEC, VERSION};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -316,6 +317,96 @@ fn run_bouncers(cfg: &Config, pos: &[String], api_override: Option<&str>) {
     }
 }
 
+fn reconcile_nft(cfg: &Config, raws: &[json::RawDecision], dry_run: bool) {
+    let nt = NftTables::from_config(&cfg.backend);
+    let mut expected: HashMap<(Family, String), HashMap<String, u32>> = HashMap::new();
+
+    for r in raws {
+        // The nftables bouncer's sets are plain `ipv4_addr`/`ipv6_addr` with
+        // `flags timeout` (not interval), so CIDR decisions cannot be members.
+        if r.value.contains('/') {
+            continue;
+        }
+        let (_addr, _plen, fam4) = match json::parse_value(&r.value) {
+            Some(v) => v,
+            None => continue,
+        };
+        let family = if fam4 == 4 { Family::V4 } else { Family::V6 };
+        let prefix = match family {
+            Family::V4 => &cfg.backend.blacklists_ipv4,
+            Family::V6 => &cfg.backend.blacklists_ipv6,
+        };
+        let set = format!("{}-{}", prefix, r.origin);
+        expected
+            .entry((family, set))
+            .or_default()
+            .entry(r.value.clone())
+            .or_insert(r.duration.max(1));
+    }
+
+    let mut stale_total = 0usize;
+    let mut missing_total = 0usize;
+    let mut added_total = 0usize;
+    for family in [Family::V4, Family::V6] {
+        let prefix = match family {
+            Family::V4 => &cfg.backend.blacklists_ipv4,
+            Family::V6 => &cfg.backend.blacklists_ipv6,
+        };
+        let sets = match nt.list_sets(family) {
+            Ok(s) => s,
+            Err(e) => die(e, 1),
+        };
+        for set in sets {
+            if !set.starts_with(&format!("{prefix}-")) {
+                continue;
+            }
+            let exp = expected.entry((family, set.clone())).or_default();
+            let members = match nt.members(family, &set) {
+                Ok(m) => m,
+                Err(e) => die(e, 1),
+            };
+            let member_set: HashSet<String> = members.iter().cloned().collect();
+
+            let mut stale: Vec<&String> = members.iter().filter(|m| !exp.contains_key(*m)).collect();
+            stale.sort();
+            for v in &stale {
+                if dry_run {
+                    outln!("would delete {set} {v}");
+                } else if let Err(e) = nt.del(family, &set, v.as_str()) {
+                    eprintln!("delete {set} {v}: {e}");
+                }
+            }
+
+            let missing: Vec<(&String, &u32)> =
+                exp.iter().filter(|(v, _)| !member_set.contains(*v)).collect();
+            for (v, timeout) in &missing {
+                if dry_run {
+                    outln!("would add {set} {v} timeout {timeout}");
+                } else if let Err(e) = nt.add(family, &set, v.as_str(), **timeout) {
+                    eprintln!("add {set} {v}: {e}");
+                } else {
+                    added_total += 1;
+                }
+            }
+
+            stale_total += stale.len();
+            missing_total += missing.len();
+            outln!(
+                "{set}: {} members, {} stale{}, {} missing{}",
+                members.len(),
+                stale.len(),
+                if dry_run { " (dry-run)" } else { "" },
+                missing.len(),
+                if dry_run { " (would be added)" } else { " (added)" }
+            );
+        }
+    }
+    outln!(
+        "reconcile: {stale_total} stale{}, {missing_total} missing, {added_total} added",
+        if dry_run { " (dry-run)" } else { "" }
+    );
+}
+
 fn run_reconcile(
     cfg: &Config,
     api_override: Option<&str>,
@@ -328,6 +419,12 @@ fn run_reconcile(
         Err(e) => die(e, 4),
     };
     let raws = json::parse_stream(body.as_bytes());
+
+    if cfg.backend.mode == "nftables" {
+        reconcile_nft(cfg, &raws, dry_run);
+        return;
+    }
+
     let (backend, origins) = open_backend(cfg, state_override);
 
     // Expected values per (family, set), with remaining timeout (seconds).

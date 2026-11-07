@@ -91,6 +91,8 @@ two deployment modes that share the same CAPI client and enforcement backends.
 - **nftables**: one `inet <table>`, one set per origin/family, base chains for
   `input` and `forward`. Interval sets reject overlaps, so CIDRs contained in
   another are dropped (still fully covered); foreign tables are never touched.
+  In Mode B the **bouncer** owns `ip <nft_table>` / `ip6 <nft_table_ipv6>` with
+  sets named `<prefix>-<origin>`; `cslite reconcile` understands that layout.
 
 ## Local detection
 

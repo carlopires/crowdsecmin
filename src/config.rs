@@ -38,6 +38,7 @@ pub struct Backend {
     pub add_rule_comments: bool,
     pub teardown_on_exit: bool,
     pub nft_table: String,
+    pub nft_table_ipv6: String,
     pub nft_chain: String,
     pub nft_priority: i32,
 }
@@ -103,6 +104,7 @@ impl Default for Config {
                 add_rule_comments: true,
                 teardown_on_exit: false,
                 nft_table: "crowdsec".to_string(),
+                nft_table_ipv6: "crowdsec6".to_string(),
                 nft_chain: "crowdsec-chain".to_string(),
                 nft_priority: -10,
             },
@@ -300,6 +302,7 @@ pub fn parse_str(text: &str) -> Result<Config, ConfigError> {
             "backend.add_rule_comments" => cfg.backend.add_rule_comments = as_bool(lineno, "backend.add_rule_comments", val)?,
             "backend.teardown_on_exit" => cfg.backend.teardown_on_exit = as_bool(lineno, "backend.teardown_on_exit", val)?,
             "backend.nft_table" => cfg.backend.nft_table = unquote(val),
+            "backend.nft_table_ipv6" => cfg.backend.nft_table_ipv6 = unquote(val),
             "backend.nft_chain" => cfg.backend.nft_chain = unquote(val),
             "backend.nft_priority" => cfg.backend.nft_priority = as_i32(lineno, "backend.nft_priority", val)?,
 

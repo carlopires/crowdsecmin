@@ -70,9 +70,11 @@ backend: { mode: iptables, blacklists_ipv4: crowdsec-blacklists, maxelem: 131072
 4. Rollback: `sudo systemctl stop cslite && sudo systemctl enable --now crowdsec
    crowdsec-firewall-bouncer`.
 
-For nftables set `backend.mode: nftables` (and optionally `nft_table`,
-`nft_chain`, `nft_priority`). Only the configured table is managed; unrelated
-tables are never touched.
+For nftables set `backend.mode: nftables` and the tables (`nft_table`,
+`nft_table_ipv6`; optionally `nft_chain`, `nft_priority`). With the nftables
+bouncer (Mode B) sets are `<prefix>-<origin>` inside `ip <table>` / `ip6 <table6>`;
+`cslite reconcile` handles that layout. Only cslite's own/configured tables are
+managed; unrelated tables are never touched.
 
 ## Local detection
 
@@ -137,9 +139,9 @@ packagecloud repo and restoring the backup (no `.deb` is cached by default).
 - ipset sets must be **`hash:net`** (decisions include CIDRs).
 - The **origin→index map** is persisted in the state dir; don't reorder it or the
   `-0`/`-1` assignment changes.
-- **nftables** interval sets reject overlaps; contained CIDRs are dropped (still
-  covered) and are not re-added until restart. `auto-merge` cannot be combined
-  with per-entry timeouts.
+- **nftables** (Mode B) sets are `<prefix>-<origin>` in `ip <table>` /
+  `ip6 <table6>`; the sets use `flags timeout` (not interval), so CIDR decisions
+  are skipped by `reconcile` (the bouncer does not put CIDRs in them).
 - **CAPI is v3** (`/v3/...`); `/v1/...` is the local LAPI. Do not send
   `community_pull=false` to CAPI — it returns an empty blocklist.
 - CAPI returns the **full blocklist on every request**; `cslite` polls every

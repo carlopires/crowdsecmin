@@ -54,6 +54,9 @@ Measured on Ubuntu 24.04, 2 vCPU / 953 MB, ~15k decisions:
   timeout without daemon action.
 - T11/T12: rustls active with CAPI polling; static binaries, no `libcurl`/`libssl`.
 - Two-way `cslite reconcile`: **0 stale / 0 missing**, ipset == store.
+- Also validated on Ubuntu 22.04 with the **nftables** bouncer: 384 stale entries
+  reconciled to 0, and a local add/delete appeared/disappeared in
+  `crowdsec-blacklists-crowdsec`.
 - Mode A: **~1.0 MB**, add and delete applied.
 - Detection: 3 failures in 60 s ban the source as `crowdsec/ssh:bruteforce`.
 
