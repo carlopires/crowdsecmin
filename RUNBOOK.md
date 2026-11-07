@@ -1,7 +1,7 @@
 # Runbook (quick reference)
 
-Full operational guide: [docs/operations.md](https://github.com/carlopires/crowdsecmin/blob/main/docs/operations.md).
-Configuration reference: [docs/configuration.md](https://github.com/carlopires/crowdsecmin/blob/main/docs/configuration.md).
+Full operational guide: `docs/operations.md`.
+Configuration reference: `docs/configuration.md`.
 
 ```bash
 # install

@@ -6,7 +6,7 @@ enough of the CrowdSec wire protocol that the **unmodified
 `crowdsec-firewall-bouncer` v0.0.36** works against it.
 
 > **Not affiliated with CrowdSec SAS.** "CrowdSec" is a trademark of CrowdSec
-> SAS and is used only to describe interoperability. See [NOTICE](https://github.com/carlopires/crowdsecmin/blob/main/NOTICE).
+> SAS and is used only to describe interoperability. See `NOTICE`.
 
 ## Why
 
@@ -79,8 +79,8 @@ capi: { enabled: true, credentials_path: /etc/crowdsec/online_api_credentials.ya
 backend: { mode: iptables, blacklists_ipv4: crowdsec-blacklists, maxelem: 131072 }
 ```
 
-See [docs/configuration.md](https://github.com/carlopires/crowdsecmin/blob/main/docs/configuration.md) and
-[docs/operations.md](https://github.com/carlopires/crowdsecmin/blob/main/docs/operations.md).
+See `docs/configuration.md` and
+`docs/operations.md`.
 
 ## CLI
 
@@ -101,11 +101,11 @@ instead of a bare 403.
 
 ## Documentation
 
-- [Architecture](https://github.com/carlopires/crowdsecmin/blob/main/docs/architecture.md)
-- [Configuration](https://github.com/carlopires/crowdsecmin/blob/main/docs/configuration.md)
-- [Operations / runbook](https://github.com/carlopires/crowdsecmin/blob/main/docs/operations.md)
-- [Wire protocol (LAPI v1 + CAPI v3)](https://github.com/carlopires/crowdsecmin/blob/main/docs/protocol.md)
-- [Testing](https://github.com/carlopires/crowdsecmin/blob/main/docs/testing.md)
+- `docs/architecture.md`
+- `docs/configuration.md`
+- `docs/operations.md`
+- `docs/protocol.md`
+- `docs/testing.md`
 
 ## Project layout
 
@@ -132,4 +132,4 @@ docs/           architecture, configuration, operations, protocol, testing
 
 ## License
 
-MIT — see [LICENSE](https://github.com/carlopires/crowdsecmin/blob/main/LICENSE) and [NOTICE](https://github.com/carlopires/crowdsecmin/blob/main/NOTICE).
+MIT — see `LICENSE` and `NOTICE`.
